@@ -6,9 +6,7 @@ import base64
 import numpy as np
 import tensorflow as tf
 
-# 載入預訓練模型
-model = tf.keras.models.load_model('Final_character_recognition_model_64x64.h5')
-print("Model loaded successfully.")
+app = Flask(__name__)
 
 # 資料夾路徑
 UPLOAD_FOLDER = 'static/original'
@@ -25,11 +23,25 @@ os.makedirs(CROP_FOLDER, exist_ok=True)
 os.makedirs(ASSEMBLED_FOLDER, exist_ok=True)
 os.makedirs(SEGMENT_FOLDER, exist_ok=True)
 
-app = Flask(__name__)
+# 預先載入模型
+model = None
+loading_complete = False
+
+def load_model():
+    global model, loading_complete
+    print("Loading model...")
+    model = tf.keras.models.load_model('Final_character_recognition_model_64x64.h5')
+    loading_complete = True
+    print("Model loaded successfully.")
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
+    global loading_complete
     final_result = None
+
+    if not loading_complete:
+        return render_template('loading.html')  # 顯示模型加載頁面
+
     if request.method == 'POST':
         # 上傳的圖片
         uploaded_file = request.files['file']
@@ -45,7 +57,7 @@ def index():
             
             # 進行字符識別
             if segmented_chars:
-                final_result = test_images_in_memory(segmented_chars)
+                final_result = test_images_in_folder(SEGMENT_FOLDER)
             
             # 圖片轉為 base64 格式
             original_img_base64 = convert_to_base64(img_path)
@@ -185,11 +197,13 @@ def test_image(file_path):
     predicted_label = np.argmax(prediction)
     return label_to_char(predicted_label)
 
-def test_images_in_memory(images):
-    """批量測試字符，直接處理記憶體中的影像"""
-    input_images = np.array([img.reshape(64, 64, 1) / 255.0 for img in images])
-    predictions = model.predict(input_images)
-    result = ''.join([label_to_char(np.argmax(pred)) for pred in predictions])
+def test_images_in_folder(folder_path):
+    """批量測試並組合結果"""
+    files = sorted(os.listdir(folder_path))
+    result = ""
+    for file in files:
+        file_path = os.path.join(folder_path, file)
+        result += test_image(file_path)
     return result
 
 def convert_to_base64(img_path):
@@ -207,4 +221,6 @@ def label_to_char(label):
         return chr(label + 61)  # 小寫字母 a-z
 
 if __name__ == '__main__':
+    # 啟動 Flask 前先載入模型
+    load_model()
     app.run(debug=True, host='0.0.0.0', port=8080)
