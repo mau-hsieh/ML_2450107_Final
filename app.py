@@ -31,12 +31,12 @@ def index():
             img_path = os.path.join(UPLOAD_FOLDER, uploaded_file.filename)
             uploaded_file.save(img_path)
             
-            # 進行車牌檢測、擷取與組合
+            # 進行處理
             processed_img_path = process_image(img_path)
             cropped_img_path = crop_plate(img_path)
             assembled_img_path = assemble_characters(cropped_img_path)
             
-            # 將圖片轉為 base64 格式
+            # 轉 Base64
             original_img_base64 = convert_to_base64(img_path)
             processed_img_base64 = convert_to_base64(processed_img_path)
             cropped_img_base64 = convert_to_base64(cropped_img_path) if cropped_img_path else None
@@ -67,7 +67,7 @@ def process_image(img_path):
     return processed_path
 
 def crop_plate(img_path):
-    """擷取車牌圖像並儲存"""
+    """擷取車牌圖像並存儲"""
     img = cv2.imread(img_path)
     detector = cv2.CascadeClassifier(CASCADE_PATH)
     signs = detector.detectMultiScale(img, scaleFactor=1.1, minNeighbors=4, minSize=(20, 20))
@@ -101,30 +101,33 @@ def assemble_characters(cropped_img_path):
     
     letter_image_regions = sorted(letter_image_regions, key=lambda x: x[0])
     
-    # 在黑色背景上組合字元
-    assembled_img = np.zeros((60, 300), dtype=np.uint8)
-    x_offset = 10
-    for region in letter_image_regions:
-        x, y, w, h = region
+    real_shape = []
+    for box in letter_image_regions:
+        x, y, w, h = box
         letter = thresh[y:y+h, x:x+w]
-        assembled_img[10:10+h, x_offset:x_offset+w] = letter
-        x_offset += w + 10
+        real_shape.append(letter)
+
+    # 組合字元到黑色背景上
+    newH, newW = thresh.shape
+    space = 8  # 空白寬度
+    offset = 2
+    bg = np.zeros((newH + space * 2, newW + space * 2 + len(real_shape) * offset, 1), np.uint8)
+    bg.fill(0)  # 背景黑色
+
+    x_offset = space
+    for letter in real_shape:
+        h, w = letter.shape
+        bg[space:space+h, x_offset:x_offset+w] = letter
+        x_offset += w + offset
     
     assembled_path = os.path.join(ASSEMBLED_FOLDER, 'assembled.jpg')
-    cv2.imwrite(assembled_path, assembled_img)
+    cv2.imwrite(assembled_path, bg)
     return assembled_path
 
 def convert_to_base64(img_path):
     """將圖片轉為 Base64 編碼"""
     with open(img_path, "rb") as img_file:
         return base64.b64encode(img_file.read()).decode('utf-8')
-
-def emptydir(dirname):
-    """清空資料夾"""
-    if os.path.isdir(dirname):
-        shutil.rmtree(dirname)
-        sleep(2)
-    os.mkdir(dirname)
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=8080)
