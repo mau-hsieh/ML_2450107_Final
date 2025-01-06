@@ -21,6 +21,18 @@
         .image-section {
             margin-bottom: 20px;
         }
+        .segmented-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+        }
+        .segmented-char {
+            border: 1px solid #ddd;
+            padding: 10px;
+            background-color: #f9f9f9;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
@@ -57,6 +69,19 @@
         <div class="image-section">
             <h2>Assembled Plate Characters:</h2>
             <img src="data:image/jpeg;base64,{{ assembled_img }}" alt="Assembled Characters">
+        </div>
+        {% endif %}
+
+        {% if segmented_imgs %}
+        <div class="image-section">
+            <h2>Segmented Characters:</h2>
+            <div class="segmented-container">
+                {% for segmented_img in segmented_imgs %}
+                <div class="segmented-char">
+                    <img src="data:image/jpeg;base64,{{ segmented_img }}" alt="Segmented Character">
+                </div>
+                {% endfor %}
+            </div>
         </div>
         {% endif %}
     </div>
