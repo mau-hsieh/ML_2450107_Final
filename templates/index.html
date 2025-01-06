@@ -3,41 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Car Plate Detection</title>
+    <title>Car Plate Detection and Recognition</title>
     <style>
         body {
             font-family: Arial, sans-serif;
             margin: 20px;
         }
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+        }
+        .image-section {
+            text-align: center;
+        }
         img {
             max-width: 100%;
             height: auto;
-        }
-        .container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        .image-section {
-            margin-bottom: 20px;
-        }
-        .segmented-container {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            justify-content: center;
-        }
-        .segmented-char {
             border: 1px solid #ddd;
-            padding: 10px;
+            border-radius: 5px;
+            padding: 5px;
             background-color: #f9f9f9;
+        }
+        h1, h2 {
             text-align: center;
         }
     </style>
 </head>
 <body>
-    <h1>Car Plate Detection App</h1>
-    <form method="POST" enctype="multipart/form-data">
+    <h1>Car Plate Detection and Recognition</h1>
+    <form method="POST" enctype="multipart/form-data" style="text-align: center;">
         <label for="file">Upload an image:</label>
         <input type="file" name="file" accept="image/*">
         <button type="submit">Upload</button>
@@ -46,42 +42,47 @@
     <div class="container">
         {% if original_img %}
         <div class="image-section">
-            <h2>Original Image:</h2>
+            <h2>Original Image</h2>
             <img src="data:image/jpeg;base64,{{ original_img }}" alt="Original Image">
         </div>
         {% endif %}
 
         {% if processed_img %}
         <div class="image-section">
-            <h2>Processed Image with Detected Plates:</h2>
+            <h2>Processed Image (Detected Plates)</h2>
             <img src="data:image/jpeg;base64,{{ processed_img }}" alt="Processed Image">
         </div>
         {% endif %}
 
         {% if cropped_img %}
         <div class="image-section">
-            <h2>Cropped Plate Image:</h2>
+            <h2>Cropped Plate Image</h2>
             <img src="data:image/jpeg;base64,{{ cropped_img }}" alt="Cropped Plate">
         </div>
         {% endif %}
 
         {% if assembled_img %}
         <div class="image-section">
-            <h2>Assembled Plate Characters:</h2>
+            <h2>Assembled Plate Characters</h2>
             <img src="data:image/jpeg;base64,{{ assembled_img }}" alt="Assembled Characters">
         </div>
         {% endif %}
 
         {% if segmented_imgs %}
         <div class="image-section">
-            <h2>Segmented Characters:</h2>
-            <div class="segmented-container">
+            <h2>Segmented Characters</h2>
+            <div class="container">
                 {% for segmented_img in segmented_imgs %}
-                <div class="segmented-char">
-                    <img src="data:image/jpeg;base64,{{ segmented_img }}" alt="Segmented Character">
-                </div>
+                <img src="data:image/jpeg;base64,{{ segmented_img }}" alt="Segmented Character">
                 {% endfor %}
             </div>
+        </div>
+        {% endif %}
+
+        {% if final_result %}
+        <div class="image-section">
+            <h2>Recognized Plate</h2>
+            <p style="font-size: 24px; font-weight: bold;">{{ final_result }}</p>
         </div>
         {% endif %}
     </div>
