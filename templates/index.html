@@ -4,6 +4,24 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Car Plate Detection</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        img {
+            max-width: 100%;
+            height: auto;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .image-section {
+            margin-bottom: 20px;
+        }
+    </style>
 </head>
 <body>
     <h1>Car Plate Detection App</h1>
@@ -13,19 +31,27 @@
         <button type="submit">Upload</button>
     </form>
 
-    {% if original_img %}
-        <h2>Original Image:</h2>
-        <img src="data:image/jpeg;base64,{{ original_img }}" alt="Original Image" style="max-width:500px;">
-    {% endif %}
+    <div class="container">
+        {% if original_img %}
+        <div class="image-section">
+            <h2>Original Image:</h2>
+            <img src="data:image/jpeg;base64,{{ original_img }}" alt="Original Image">
+        </div>
+        {% endif %}
 
-    {% if processed_img %}
-        <h2>Processed Image with Detected Plates:</h2>
-        <img src="data:image/jpeg;base64,{{ processed_img }}" alt="Processed Image" style="max-width:500px;">
-    {% endif %}
+        {% if processed_img %}
+        <div class="image-section">
+            <h2>Processed Image with Detected Plates:</h2>
+            <img src="data:image/jpeg;base64,{{ processed_img }}" alt="Processed Image">
+        </div>
+        {% endif %}
 
-    {% if cropped_img %}
-        <h2>Cropped Plate Image:</h2>
-        <img src="data:image/jpeg;base64,{{ cropped_img }}" alt="Cropped Plate" style="max-width:200px;">
-    {% endif %}
+        {% if assembled_img %}
+        <div class="image-section">
+            <h2>Assembled Plate Characters:</h2>
+            <img src="data:image/jpeg;base64,{{ assembled_img }}" alt="Assembled Characters">
+        </div>
+        {% endif %}
+    </div>
 </body>
 </html>
