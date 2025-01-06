@@ -6,19 +6,26 @@
     <title>Car Plate Detection</title>
 </head>
 <body>
-    <h1>Car Plate Detection</h1>
+    <h1>Car Plate Detection App</h1>
     <form method="POST" enctype="multipart/form-data">
         <label for="file">Upload an image:</label>
         <input type="file" name="file" accept="image/*">
         <button type="submit">Upload</button>
     </form>
-    
-    {% if original_img and processed_img %}
+
+    {% if original_img %}
         <h2>Original Image:</h2>
         <img src="data:image/jpeg;base64,{{ original_img }}" alt="Original Image" style="max-width:500px;">
-        
-        <h2>Processed Image:</h2>
+    {% endif %}
+
+    {% if processed_img %}
+        <h2>Processed Image with Detected Plates:</h2>
         <img src="data:image/jpeg;base64,{{ processed_img }}" alt="Processed Image" style="max-width:500px;">
+    {% endif %}
+
+    {% if cropped_img %}
+        <h2>Cropped Plate Image:</h2>
+        <img src="data:image/jpeg;base64,{{ cropped_img }}" alt="Cropped Plate" style="max-width:200px;">
     {% endif %}
 </body>
 </html>
