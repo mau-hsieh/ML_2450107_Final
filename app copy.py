@@ -4,8 +4,7 @@ import os
 from PIL import Image
 import base64
 import numpy as np
-import matplotlib.pyplot as plt
-from io import BytesIO
+import tensorflow as tf
 
 app = Flask(__name__)
 
@@ -24,8 +23,25 @@ os.makedirs(CROP_FOLDER, exist_ok=True)
 os.makedirs(ASSEMBLED_FOLDER, exist_ok=True)
 os.makedirs(SEGMENT_FOLDER, exist_ok=True)
 
+# 預先載入模型
+model = None
+loading_complete = False
+
+def load_model():
+    global model, loading_complete
+    print("Loading model...")
+    model = tf.keras.models.load_model('Final_character_recognition_model_64x64.h5')
+    loading_complete = True
+    print("Model loaded successfully.")
+
 @app.route('/', methods=['GET', 'POST'])
 def index():
+    global loading_complete
+    final_result = None
+
+    if not loading_complete:
+        return render_template('loading.html')  # 顯示模型加載頁面
+
     if request.method == 'POST':
         # 上傳的圖片
         uploaded_file = request.files['file']
@@ -38,6 +54,10 @@ def index():
             cropped_img_path = crop_plate(img_path)
             assembled_img_path = assemble_characters(cropped_img_path)
             segmented_chars = segment_characters(assembled_img_path)
+            
+            # 進行字符識別
+            if segmented_chars:
+                final_result = test_images_in_folder(SEGMENT_FOLDER)
             
             # 圖片轉為 base64 格式
             original_img_base64 = convert_to_base64(img_path)
@@ -54,10 +74,11 @@ def index():
                 processed_img=processed_img_base64,
                 cropped_img=cropped_img_base64,
                 assembled_img=assembled_img_base64,
-                segmented_imgs=segmented_imgs_base64
+                segmented_imgs=segmented_imgs_base64,
+                final_result=final_result
             )
     
-    return render_template('index.html', original_img=None, processed_img=None, cropped_img=None, assembled_img=None, segmented_imgs=[])
+    return render_template('index.html', original_img=None, processed_img=None, cropped_img=None, assembled_img=None, segmented_imgs=[], final_result=final_result)
 
 def process_image(img_path):
     """車牌檢測並在圖片上畫框"""
@@ -135,7 +156,6 @@ def assemble_characters(cropped_img_path):
     cv2.imwrite(assembled_path, inverted_bg)
     return assembled_path
 
-
 def segment_characters(image_path, padding=10):
     """字符分割函數"""
     image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
@@ -168,10 +188,39 @@ def segment_characters(image_path, padding=10):
     
     return segmented_paths
 
+def test_image(file_path):
+    """單一圖像測試函數"""
+    image = cv2.imread(file_path, cv2.IMREAD_GRAYSCALE)
+    resized_image = cv2.resize(image, (64, 64)) / 255.0
+    input_image = resized_image.reshape(1, 64, 64, 1)
+    prediction = model.predict(input_image)
+    predicted_label = np.argmax(prediction)
+    return label_to_char(predicted_label)
+
+def test_images_in_folder(folder_path):
+    """批量測試並組合結果"""
+    files = sorted(os.listdir(folder_path))
+    result = ""
+    for file in files:
+        file_path = os.path.join(folder_path, file)
+        result += test_image(file_path)
+    return result
+
 def convert_to_base64(img_path):
     """將圖片轉為 Base64 編碼"""
     with open(img_path, "rb") as img_file:
         return base64.b64encode(img_file.read()).decode('utf-8')
 
+def label_to_char(label):
+    """字符標籤對應函數"""
+    if label < 10:
+        return chr(label + 48)  # 數字 0-9
+    elif 10 <= label < 36:
+        return chr(label + 55)  # 大寫字母 A-Z
+    else:
+        return chr(label + 61)  # 小寫字母 a-z
+
 if __name__ == '__main__':
+    # 啟動 Flask 前先載入模型
+    load_model()
     app.run(debug=True, host='0.0.0.0', port=8080)
