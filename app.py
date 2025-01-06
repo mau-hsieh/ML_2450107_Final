@@ -4,16 +4,17 @@ import os
 from PIL import Image
 import base64
 import numpy as np
-import shutil
-from time import sleep
+import matplotlib.pyplot as plt
+from io import BytesIO
 
 app = Flask(__name__)
 
-# 定義資料夾路徑
+# 資料夾路徑
 UPLOAD_FOLDER = 'static/original'
 PROCESSED_FOLDER = 'static/processed'
 CROP_FOLDER = 'static/cropped'
 ASSEMBLED_FOLDER = 'static/assembled'
+SEGMENT_FOLDER = 'static/segmented'
 CASCADE_PATH = 'haar_carplate.xml'
 
 # 確保資料夾存在
@@ -21,6 +22,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(PROCESSED_FOLDER, exist_ok=True)
 os.makedirs(CROP_FOLDER, exist_ok=True)
 os.makedirs(ASSEMBLED_FOLDER, exist_ok=True)
+os.makedirs(SEGMENT_FOLDER, exist_ok=True)
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -31,26 +33,31 @@ def index():
             img_path = os.path.join(UPLOAD_FOLDER, uploaded_file.filename)
             uploaded_file.save(img_path)
             
-            # 車牌檢測、裁剪和組合
+            # 車牌檢測、裁剪、組合與字符分割
             processed_img_path = process_image(img_path)
             cropped_img_path = crop_plate(img_path)
             assembled_img_path = assemble_characters(cropped_img_path)
+            segmented_chars = segment_characters(assembled_img_path)
             
-            # 圖片轉為 base64
+            # 圖片轉為 base64 格式
             original_img_base64 = convert_to_base64(img_path)
             processed_img_base64 = convert_to_base64(processed_img_path)
             cropped_img_base64 = convert_to_base64(cropped_img_path) if cropped_img_path else None
             assembled_img_base64 = convert_to_base64(assembled_img_path) if assembled_img_path else None
+            
+            # 分割的字符圖片
+            segmented_imgs_base64 = [convert_to_base64(char_path) for char_path in segmented_chars]
             
             return render_template(
                 'index.html',
                 original_img=original_img_base64,
                 processed_img=processed_img_base64,
                 cropped_img=cropped_img_base64,
-                assembled_img=assembled_img_base64
+                assembled_img=assembled_img_base64,
+                segmented_imgs=segmented_imgs_base64
             )
     
-    return render_template('index.html', original_img=None, processed_img=None, cropped_img=None, assembled_img=None)
+    return render_template('index.html', original_img=None, processed_img=None, cropped_img=None, assembled_img=None, segmented_imgs=[])
 
 def process_image(img_path):
     """車牌檢測並在圖片上畫框"""
@@ -124,6 +131,38 @@ def assemble_characters(cropped_img_path):
     assembled_path = os.path.join(ASSEMBLED_FOLDER, 'assembled.jpg')
     cv2.imwrite(assembled_path, bg)
     return assembled_path
+
+def segment_characters(image_path, padding=10):
+    """字符分割函數"""
+    image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+    _, binary = cv2.threshold(image, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+    
+    contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    char_contours = []
+    for cnt in contours:
+        x, y, w, h = cv2.boundingRect(cnt)
+        if 10 < w < 150 and 30 < h < 200:
+            char_contours.append((x, y, w, h))
+    
+    char_contours = sorted(char_contours, key=lambda x: x[0])
+    base_filename = os.path.splitext(os.path.basename(image_path))[0]
+    
+    segmented_paths = []
+    for i, (x, y, w, h) in enumerate(char_contours):
+        x_expanded = max(x - padding, 0)
+        y_expanded = max(y - padding, 0)
+        w_expanded = min(w + 2 * padding, binary.shape[1] - x_expanded)
+        h_expanded = min(h + 2 * padding, binary.shape[0] - y_expanded)
+        
+        char_image = binary[y_expanded:y_expanded+h_expanded, x_expanded:x_expanded+w_expanded]
+        resized_char = cv2.resize(char_image, (64, 64))
+        inverted_char = cv2.bitwise_not(resized_char)
+        
+        output_path = os.path.join(SEGMENT_FOLDER, f"{base_filename}_char_{i:02d}.jpg")
+        cv2.imwrite(output_path, inverted_char)
+        segmented_paths.append(output_path)
+    
+    return segmented_paths
 
 def convert_to_base64(img_path):
     """將圖片轉為 Base64 編碼"""
