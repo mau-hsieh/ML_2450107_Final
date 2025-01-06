@@ -45,7 +45,7 @@ def index():
             
             # 進行字符識別
             if segmented_chars:
-                final_result = test_images_in_folder(SEGMENT_FOLDER)
+                final_result = test_images_in_memory(segmented_chars)
             
             # 圖片轉為 base64 格式
             original_img_base64 = convert_to_base64(img_path)
@@ -185,13 +185,11 @@ def test_image(file_path):
     predicted_label = np.argmax(prediction)
     return label_to_char(predicted_label)
 
-def test_images_in_folder(folder_path):
-    """批量測試並組合結果"""
-    files = sorted(os.listdir(folder_path))
-    result = ""
-    for file in files:
-        file_path = os.path.join(folder_path, file)
-        result += test_image(file_path)
+def test_images_in_memory(images):
+    """批量測試字符，直接處理記憶體中的影像"""
+    input_images = np.array([img.reshape(64, 64, 1) / 255.0 for img in images])
+    predictions = model.predict(input_images)
+    result = ''.join([label_to_char(np.argmax(pred)) for pred in predictions])
     return result
 
 def convert_to_base64(img_path):
