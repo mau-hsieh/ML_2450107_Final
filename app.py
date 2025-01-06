@@ -30,23 +30,23 @@ def index():
             img_path = os.path.join(UPLOAD_FOLDER, uploaded_file.filename)
             uploaded_file.save(img_path)
             
-            # 處理圖片：車牌檢測、字元分割、組合
+            # 讀取圖片並進行車牌檢測和擷取
             processed_img_path = process_image(img_path)
-            assembled_img_path = assemble_characters(img_path)
+            cropped_img_path = crop_plate(img_path)
             
             # 將圖片轉為 base64 格式以顯示在頁面上
             original_img_base64 = convert_to_base64(img_path)
             processed_img_base64 = convert_to_base64(processed_img_path)
-            assembled_img_base64 = convert_to_base64(assembled_img_path)
+            cropped_img_base64 = convert_to_base64(cropped_img_path) if cropped_img_path else None
             
             return render_template(
                 'index.html',
                 original_img=original_img_base64,
                 processed_img=processed_img_base64,
-                assembled_img=assembled_img_base64
+                cropped_img=cropped_img_base64
             )
     
-    return render_template('index.html', original_img=None, processed_img=None, assembled_img=None)
+    return render_template('index.html', original_img=None, processed_img=None, cropped_img=None)
 
 def process_image(img_path):
     """進行車牌檢測並在圖片上畫框"""
@@ -62,53 +62,38 @@ def process_image(img_path):
     cv2.imwrite(processed_path, img)
     return processed_path
 
-def assemble_characters(img_path):
-    """分割車牌字元並組合到黑色背景上"""
+def crop_plate(img_path):
+    """擷取車牌圖像並存儲"""
     img = cv2.imread(img_path)
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    _, thresh = cv2.threshold(gray, 127, 255, cv2.THRESH_BINARY_INV)
-    contours1 = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    contours = contours1[0]
-
-    letter_image_regions = []
-    for contour in contours:
-        (x, y, w, h) = cv2.boundingRect(contour)
-        letter_image_regions.append((x, y, w, h))
-    letter_image_regions = sorted(letter_image_regions, key=lambda x: x[0])
-
-    letterlist = []
-    for box in letter_image_regions:
-        x, y, w, h = box
-        if 2 <= x <= 125 and 5 <= w <= 26 and 20 <= h < 40:
-            letterlist.append((x, y, w, h))
-
-    real_shape = []
-    for i, box in enumerate(letterlist):
-        x, y, w, h = box
-        bg = thresh[y:y+h, x:x+w]
-        real_shape.append(bg)
-
-    newH, newW = thresh.shape
-    space = 8
-    bg = np.zeros((newH + space*2, newW + space*2, 1), np.uint8)
-    bg.fill(0)
-
-    for i, letter in enumerate(real_shape):
-        h, w = letter.shape
-        x, y, _, _ = letterlist[i]
-        for row in range(h):
-            for col in range(w):
-                bg[space + y + row, space + x + col] = letter[row, col]
-
-    _, bg = cv2.threshold(bg, 127, 255, cv2.THRESH_BINARY_INV)
-    assembled_path = os.path.join(CROP_FOLDER, "assembled.jpg")
-    cv2.imwrite(assembled_path, bg)
-    return assembled_path
+    detector = cv2.CascadeClassifier(CASCADE_PATH)
+    signs = detector.detectMultiScale(img, scaleFactor=1.1, minNeighbors=4, minSize=(20, 20))
+    
+    if len(signs) > 0:
+        for (x, y, w, h) in signs:
+            image = Image.open(img_path)
+            cropped = image.crop((x, y, x+w, y+h))
+            resized = cropped.resize((140, 40), Image.LANCZOS)
+            img_gray = np.array(resized.convert('L'))
+            _, img_thre = cv2.threshold(img_gray, 127, 255, cv2.THRESH_BINARY)
+            
+            cropped_path = os.path.join(CROP_FOLDER, os.path.basename(img_path))
+            cv2.imwrite(cropped_path, img_thre)
+            return cropped_path
+    else:
+        print(f"無法擷取車牌：{os.path.basename(img_path)}")
+        return None
 
 def convert_to_base64(img_path):
     """將圖片轉為 Base64 編碼"""
     with open(img_path, "rb") as img_file:
         return base64.b64encode(img_file.read()).decode('utf-8')
+
+def emptydir(dirname):
+    """清空資料夾"""
+    if os.path.isdir(dirname):
+        shutil.rmtree(dirname)
+        sleep(2)
+    os.mkdir(dirname)
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=8080)
