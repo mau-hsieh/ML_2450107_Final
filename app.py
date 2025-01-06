@@ -95,7 +95,7 @@ def crop_plate(img_path):
         return None
 
 def assemble_characters(cropped_img_path):
-    """組合車牌字元到黑色背景上"""
+    """組合車牌字元到黑色背景上，並將結果反轉為白色背景黑色字元"""
     if not cropped_img_path:
         return None
     
@@ -128,9 +128,13 @@ def assemble_characters(cropped_img_path):
         bg[10:10+h, x_offset:x_offset+w] = letter
         x_offset += w + 10
     
+    # 反轉顏色（白色背景，黑色字元）
+    inverted_bg = cv2.bitwise_not(bg)
+    
     assembled_path = os.path.join(ASSEMBLED_FOLDER, 'assembled.jpg')
-    cv2.imwrite(assembled_path, bg)
+    cv2.imwrite(assembled_path, inverted_bg)
     return assembled_path
+
 
 def segment_characters(image_path, padding=10):
     """字符分割函數"""
